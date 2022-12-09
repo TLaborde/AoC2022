@@ -83,81 +83,27 @@ function Find-Result2 ($sample)
 
 function Update-Tail ($head, $tail)
 {
-    if ($head.x -eq $tail.x -and $tail.y -eq $head.y)
-    {
-        return $tail
-    }
     #vertical/horizontal move
-    if ([math]::abs($head.x - $tail.x) -eq 2 -and $head.y -eq $tail.y)
+    $newTail = @{x = 0; y = 0 }
+    $newTail.x = [math]::Floor((($head.x + $tail.x) / 2))
+    $newTail.y = [math]::Floor(($head.y + $tail.y) / 2)
+    # if we are adjacent, don't move
+    if ([math]::Abs($head.x - $tail.x) -le 1 -and [math]::Abs($head.y - $tail.y) -le 1)
     {
-        if ($head.x -gt $tail.x)
-        {
-            $tail.x++
-        }
-        else
-        {
-            $tail.x--
-        }
-    }
-    if ([math]::abs($head.y - $tail.y) -eq 2 -and $head.x -eq $tail.x)
-    {
-        if ($head.y -gt $tail.y)
-        {
-            $tail.y++
-        }
-        else
-        {
-            $tail.y--
-        }
         return $tail
     }
-    # diagonal move
-    if ([math]::abs($head.x - $tail.x) -eq 2 -and [math]::abs($head.y - $tail.y) -eq 1)
+    # rule for moving in a L shape
+    if ([math]::Abs($head.x - $tail.x) -eq 1 -and [math]::Abs($head.y - $tail.y) -eq 2)
     {
-        if ($head.x -gt $tail.x)
-        {
-            $tail.x++
-        }
-        else
-        {
-            $tail.x--
-        }
-        $tail.y = $head.y
-    }
-    if ([math]::abs($head.y - $tail.y) -eq 2 -and [math]::abs($head.x - $tail.x) -eq 1)
+        $newTail.x = $head.x
+    }  
+    if ([math]::Abs($head.y - $tail.y) -eq 1 -and [math]::Abs($head.x - $tail.x) -eq 2)
     {
-        if ($head.y -gt $tail.y)
-        {
-            $tail.y++
-        }
-        else
-        {
-            $tail.y--
-        }
-        $tail.x = $head.x
+        $newTail.y = $head.y
     }
-    if ([math]::abs($head.y - $tail.y) -eq 2 -and [math]::abs($head.x - $tail.x) -eq 2)
-    {
-        if ($head.y -gt $tail.y)
-        {
-            $tail.y++
-        }
-        else
-        {
-            $tail.y--
-        }
-        if ($head.x -gt $tail.x)
-        {
-            $tail.x++
-        }
-        else
-        {
-            $tail.x--
-        }
-    }
-    return $tail
-}
 
+    return $newTail
+}
 
 
 'Sample result should be: 13'
