@@ -12,93 +12,54 @@ L 5
 R 2
 '@ -split "`n"
 
-function Find-Result ($sample)
-{
-    $head = @{x = 0; y = 0 }
-    $tail = @{x = 0; y = 0 }
-    $tailPos = @()
-    foreach ($line in $sample)
-    {
+function Find-Result ($sample, $size = 2) {
+    $rope = New-Rope -Size $size
+    $tailPos = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($line in $sample) {
         $direction, $amount = $line -split ' '
-        for ($i = 0; $i -lt $amount; $i++)
-        {
-            switch ($direction)
-            {
-                'R' { $head.x++ ; break }
-                'L' { $head.x-- ; break }
-                'U' { $head.y++ ; break }
-                'D' { $head.y-- ; break }
-                Default
-                {
-                    Write-Error 'parse error' 
-                }
-            }
-            $tail = Update-Tail $head $tail
-            $tailPos += 'T=' + $tail.x + 'x' + $tail.y
-        }
-    }
-($tailPos | Sort-Object -Unique).count
-}
-
-function Find-Result2 ($sample)
-{
-    $rope = @(
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 },
-        @{x = 0; y = 0 }
-    )
-    $tailPos = @()
-    foreach ($line in $sample)
-    {
-        $direction, $amount = $line -split ' '
-        for ($i = 0; $i -lt $amount; $i++)
-        {
-            switch ($direction)
-            {
+        for ($i = 0; $i -lt $amount; $i++) {
+            # update head
+            switch ($direction) {
                 'R' { $rope[0].x++ ; break }
                 'L' { $rope[0].x-- ; break }
                 'U' { $rope[0].y++ ; break }
                 'D' { $rope[0].y-- ; break }
-                Default
-                {
-                    Write-Error 'parse error' 
+                Default {
+                    Write-Error 'parse error' # shouldn't happen
                 }
             }
-            for ($j = 1; $j -lt $rope.Count; $j++)
-            {
+            # update rest
+            for ($j = 1; $j -lt $rope.Count; $j++) {
                 $rope[$j] = Update-Tail $rope[($j - 1)] $rope[$j]
             }
-            $tailPos += 'T=' + $rope[9].x + 'x' + $rope[9].y 
+            # store new tail position if new
+            $null = $tailPos.Add('T=' + $rope[$rope.Count - 1].x + 'x' + $rope[$rope.Count - 1].y)
         }
     }
-($tailPos | Sort-Object -Unique).count
+    $tailPos.count
 }
 
-function Update-Tail ($head, $tail)
-{
-    #vertical/horizontal move
-    $newTail = @{x = 0; y = 0 }
-    $newTail.x = [math]::Floor((($head.x + $tail.x) / 2))
-    $newTail.y = [math]::Floor(($head.y + $tail.y) / 2)
-    # if we are adjacent, don't move
-    if ([math]::Abs($head.x - $tail.x) -le 1 -and [math]::Abs($head.y - $tail.y) -le 1)
-    {
-        return $tail
+function Find-Result2 ($sample) {
+    Find-Result $sample 10
+}
+
+function New-Rope ($size) {
+    1..$size | ForEach-Object { @{x = 0; y = 0 } }
+}
+function Update-Tail ($head, $tail) {
+    # if we are adjacent or on same position, don't move
+    if ([math]::Abs($head.x - $tail.x) -le 1 -and [math]::Abs($head.y - $tail.y) -le 1) {
+        return $tail 
     }
+
+    #vertical/horizontal move
+    $newTail = @{x = (($head.x + $tail.x) / 2); y = ($head.y + $tail.y) / 2 }
+
     # rule for moving in a L shape
-    if ([math]::Abs($head.x - $tail.x) -eq 1 -and [math]::Abs($head.y - $tail.y) -eq 2)
-    {
+    if ([math]::Abs($head.x - $tail.x) -eq 1) {
         $newTail.x = $head.x
     }  
-    if ([math]::Abs($head.y - $tail.y) -eq 1 -and [math]::Abs($head.x - $tail.x) -eq 2)
-    {
+    if ([math]::Abs($head.y - $tail.y) -eq 1) {
         $newTail.y = $head.y
     }
 
@@ -107,9 +68,9 @@ function Update-Tail ($head, $tail)
 
 
 'Sample result should be: 13'
-#Find-Result $sample
+Find-Result $sample
 
-#Find-Result $data
+Find-Result $data
 
 
 
