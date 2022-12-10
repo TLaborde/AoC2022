@@ -14,7 +14,7 @@ R 2
 
 function Find-Result ($sample, $size = 2) {
     $rope = New-Rope -Size $size
-    $tailPos = New-Object System.Collections.Generic.HashSet[string]
+    $tailPos = New-HashSet
     foreach ($line in $sample) {
         $direction, $amount = $line -split ' '
         for ($i = 0; $i -lt $amount; $i++) {
@@ -65,7 +65,6 @@ function Update-Tail ($head, $tail) {
 
     return $newTail
 }
-
 
 'Sample result should be: 13'
 Find-Result $sample
