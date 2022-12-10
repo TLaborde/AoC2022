@@ -155,39 +155,32 @@ function Find-Result ($sample) {
     $cycle = 0
     $signalStrength = 0
     foreach ($line in $sample) {
+        $cycle, $signalStrength = Update-CycleAndSignal $cycle $X $signalStrength #do one cycle for noop or add
         if ($line -match "addx ([-0-9]+)") {
-            $cycle++
-            if (!(($cycle - 20) % 40)) {
-                $signalStrength += $cycle * $X
-            }
-            $cycle++
-            if (!(($cycle - 20) % 40)) {
-                $signalStrength += $cycle * $X
-            }
+            # for add, do cycle then add
+            $cycle, $signalStrength = Update-CycleAndSignal $cycle $X $signalStrength
             $X += [int]$matches[1]
-        }
-        if ($line -match "noop") {
-            $cycle++
-            if (!(($cycle - 20) % 40)) {
-                $signalStrength += $cycle * $X
-            }
         }
     }
     $signalStrength
-    $cycle
+}
+
+Function Update-CycleAndSignal ($cycle, $X, $signalStrength) {
+    $cycle++
+    if (!(($cycle - 20) % 40)) {
+        $signalStrength += $cycle * $X
+    }
+    $cycle, $signalStrength
 }
 
 function Find-Result2 ($sample) {
     $X = 1
     $cycle = 0
     foreach ($line in $sample) {
+        $cycle = Draw-Pixel $cycle $X
         if ($line -match "addx ([-0-9]+)") {
             $cycle = Draw-Pixel $cycle $X
-            $cycle = Draw-Pixel $cycle $X
             $X += [int]$matches[1]
-        }
-        if ($line -match "noop") {
-            $cycle = Draw-Pixel $cycle $X
         }
     }
 }
