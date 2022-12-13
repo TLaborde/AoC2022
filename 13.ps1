@@ -1,3 +1,4 @@
+using namespace System.Text.Json.Nodes
 . ./common.ps1
 $data = Get-Content .\13.input.txt
 
@@ -27,95 +28,65 @@ $sample = @'
 [1,[2,[3,[4,[5,6,0]]]],8,9]
 '@ -split "`n"
 
-function Find-Result ($sample)
-{
+function Find-Result ($sample) {
     $sum = 0
-    for ($i = 0; $i -lt $sample.Count; $i = $i + 3)
-    {
-        #$left = $sample[$i] -replace '\[\[\[\[', ',[,[,[,[' -replace '\[\[\[', ',[,[,[' -replace '\[\[', ',[,[' -replace '\[\]', ',@()' -replace '\[', '@(' -replace '\]', ')' | Invoke-Expression
-        #$right = $sample[$i + 1] -replace '\[\[\[\[', ',[,[,[,[' -replace '\[\[\[', ',[,[,[' -replace '\[\[', ',[,[' -replace '\[\]', ',@()' -replace '\[', '@(' -replace '\]', ')' | Invoke-Expression
-        $left = Parse-input $sample[$i]
-        $right = Parse-input $sample[$i + 1]
-        #$right = ConvertFrom-Json $sample[$i + 1]
-        if (Compare-Signal $left $right)
-        {
+    for ($i = 0; $i -lt $sample.Count; $i = $i + 3) {
+        if ((Compare-Signal $sample[$i] $sample[$i + 1]) -lt 0) {
             $sum += ($i / 3) + 1
         }
     }
     $sum
 }
 
-function Parse-Input ($s)
-{
-    ConvertFrom-Json $s -NoEnumerate
-}
-function Find-Result2 ($sample)
-{
-
-}
-
-
-function Compare-Signal ($left, $right, $depth = 0)
-{
-    #if ($left -eq $null) { return 'go' }
-    if ($right -eq $null)
-    { 
-        write-host '    Right side ran out of items, so inputs are not in the right order'
-        return $false 
+function Find-Result2 ($sample) {
+    $sample = $sample + @("[[2]]", "[[6]]") | ? { $_.length -gt 1 }
+    $list = New-Object -TypeName "System.Collections.Generic.List[JsonNode]"
+    $sample | % {
+        $list.Add([JsonNode]::Parse($_))
     }
-    if ($left -isnot [array] -and $right -isnot [array])
-    {
-        write-host "comparing $left to $right"
-        if ([int]$left -lt [int]$right)
-        {
-            write-host '    Left side is smaller, so inputs are in the right order'
-            return $true
-        }
-        if ([int]$left -gt [int]$right)
-        {
-            write-host '    Right side is smaller, so inputs are not in the right order'
-            return $false
-        }
-        if ([int]$left -eq [int]$right)
-        {
-            return 'go'
-        }
-    }
-    write-host "comparing $( convertto-json -input $left -Compress -Depth 10) to $(convertto-json -input $right -Compress -Depth 10)"
-    if ($left -isnot [array])
-    { 
-        write-host '- Mixed types; convert left to [array] and retry comparison'
-        $subResult = Compare-Signal (, $left) $right ($depth)
-        return $subResult
-    }
-    if ($right -isnot [array])
-    { 
-        write-host '- Mixed types; convert right to [array] and retry comparison'
-        $subResult = Compare-Signal ($left) (, $right) ($depth)
-        return $subResult
-    }
-    for ($i = 0; $i -lt $left.Count; $i++)
-    {
-        $subResult = Compare-Signal $left[$i] $right[$i] ($depth + 1)
-        if ($subResult -is [bool])
-        {
-            return $subResult
-        }
-    }
-
-    write-host '   Left side ran out of items, so inputs are in the right order'
-    return $true
+    $list.Sort([AOC.Solution]::Compare)
+    $sample = $list | % { $_.tojsonstring() }
+    ($sample.IndexOf("[[2]]") + 1) * ($sample.IndexOf("[[6]]") + 1)
 }
 
+function Compare-Signal ($left, $right) {
+    [AOC.Solution]::Compare([JsonNode]::Parse($left), [JsonNode]::Parse($right))
+}
 
-'Sample result should be: '
+$SourceCode = @"
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Text.Json.Nodes;
+
+namespace AOC;
+public class Solution {
+
+    public static int Compare(JsonNode nodeA, JsonNode nodeB) {
+        if (nodeA is JsonValue && nodeB is JsonValue) {
+            return (int)nodeA - (int)nodeB;
+        } else {
+            var arrayA = nodeA as JsonArray ?? new JsonArray((int)nodeA);
+            var arrayB = nodeB as JsonArray ?? new JsonArray((int)nodeB);
+            return Enumerable.Zip(arrayA, arrayB)
+                .Select(p => Compare(p.First, p.Second))
+                .FirstOrDefault(c => c != 0, arrayA.Count - arrayB.Count);
+        }
+    }
+}
+"@
+Add-Type -ReferencedAssemblies $Assembly -TypeDefinition $SourceCode -Language CSharp
+
+
+'Sample result should be: 13'
 Find-Result $sample
 
 
 
 Find-Result $data
-
+"The result for solution 1 is: 5843"
 'Second part, sample result should be: '
 Find-Result2 $sample
 
 Find-Result2 $data
+"The result for solution 2 is: 26289"
