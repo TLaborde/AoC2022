@@ -9,81 +9,64 @@ $sample = @'
 function Find-Result ($sample)
 {
     $Blocks, $maxY = Generate-Rock $sample
-    $sand = 0
-    While ( Add-Sand -Blocks $Blocks -MaxY $maxY)
-    { $sand++ }
-    $sand
+    $start = $blocks.Count
+    While (Add-Sand -Blocks $Blocks -MaxY $maxY) {}
+    $blocks.count - $start
 }
 
 function Find-Result2 ($sample)
 {
     $Blocks, $maxY = Generate-Rock $sample
-    $sand = 0
-    While ( Add-Sand2 -Blocks $Blocks -MaxY $maxY)
-    { $sand++ }
-    $sand
+    $start = $blocks.Count
+    While (Add-Sand2 -Blocks $Blocks -MaxY $maxY) {}
+    $blocks.count - $start
 }
 
 function Add-Sand ($Blocks, $x = 500, $y = 0, $MaxY)
 {
     do
     {
-        $moved = $false
-        while (!($Blocks.Contains("$($x)x$($y+1)")))
+        $currentY = $y
+        while (!($Blocks.Contains("$($x)x$($y+1)"))) # go down
         {
             $y++
-            $moved = $true
             if ($y -gt $MaxY)
             { return $false }
         }
-        if (!($Blocks.Contains("$($x-1)x$($y+1)")))
+        if (!($Blocks.Contains("$($x-1)x$($y+1)"))) # go left
         {
             $x--
             $y++
-            $moved = $true
         }
-        elseif (!($Blocks.Contains("$($x+1)x$($y+1)") ))
+        elseif (!($Blocks.Contains("$($x+1)x$($y+1)") )) # go right
         {
             $x++
             $y++
-            $moved = $true
         }
-    } while ($moved)
-    $null = $blocks.Add("$($x)x$($y)")
-    return $true
+    } while ($currentY -ne $y)
+    return $blocks.Add("$($x)x$($y)")
 }
 
 function Add-Sand2 ($Blocks, $x = 500, $y = 0, $MaxY)
 {
     do
     {
-        $moved = $false
-        if ($y -eq ($MaxY + 1))
+        $currentY = $y
+        while (!($Blocks.Contains("$($x)x$($y+1)")) -and ($y -lt ($MaxY + 1)))
         {
-            break
+            $y++
         }
-        else
+        if (!($Blocks.Contains("$($x-1)x$($y+1)")) -and ($y -lt ($MaxY + 1)))
         {
-        
-            while (!($Blocks.Contains("$($x)x$($y+1)")) -and ($y -lt ($MaxY + 1)))
-            {
-                $y++
-                $moved = $true
-            }
-            if (!($Blocks.Contains("$($x-1)x$($y+1)")) -and ($y -lt ($MaxY + 1)))
-            {
-                $x--
-                $y++
-                $moved = $true
-            }
-            elseif (!($Blocks.Contains("$($x+1)x$($y+1)")) -and ($y -lt ($MaxY + 1)))
-            {
-                $x++
-                $y++
-                $moved = $true
-            }
+            $x--
+            $y++
         }
-    } while ($moved)
+        elseif (!($Blocks.Contains("$($x+1)x$($y+1)")) -and ($y -lt ($MaxY + 1)))
+        {
+            $x++
+            $y++
+        }
+    } while ($currentY -ne $y)
     return $blocks.Add("$($x)x$($y)")
 }
 function Generate-Rock ($sample)
@@ -116,7 +99,7 @@ Find-Result $sample
 
 Find-Result $data
 
-'Second part, sample result should be: '
+'Second part, sample result should be: 93 '
 Find-Result2 $sample
 
 Find-Result2 $data
