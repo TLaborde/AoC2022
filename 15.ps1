@@ -25,16 +25,55 @@ function Find-Result ($sample, $y = 10)
     $y - $beacons
 }
 
-function Find-Result2 ($sample, $mergeRangeLimit)
+function Find-Result2 ($sample, $maxSize)
 {
     $mapData = Parse-BeaconSignal $sample
-    for ($y = 0; $y -lt $mergeRangeLimit.maxX; $y++)
+    #brute force version, bit slow
+    #for ($y = 0; $y -lt $mergeRangeLimit.maxX; $y++)
+    #{
+    #    $pos, $beacons, $ranges = Get-YCoverage $y $mapData $mergeRangeLimit
+    #    if ($pos -ne ($mergeRangeLimit.maxX + 1) )
+    #    {
+    #     ($ranges[0].end + 1) * 4000000 + $y
+    #        break
+    #    }
+    #}
+    # bit cleverer, the solution has to be just outside of the range of the diamond
+    Get-Suspects $mapData $maxSize
+}
+
+function Get-Suspects ($mapData, $maxSize = 20)
+{
+    $mapData = $mapData | Sort-Object -Property distance
+
+    foreach ($dataPoint in $mapData)
     {
-        $pos, $beacons, $ranges = Get-YCoverage $y $mapData $mergeRangeLimit
-        if ($pos -ne ($mergeRangeLimit.maxX + 1) )
+        $verticalSpan = ($dataPoint.SensorY - $dataPoint.Distance - 1)..($dataPoint.SensorY + $dataPoint.Distance + 1)
+        foreach ($y in $verticalSpan)
         {
-         ($ranges[0].end + 1) * 4000000 + $y
-            break
+            if ($y -lt $maxSize + 1 -and $y -ge 0)
+            {
+                $lat = $dataPoint.Distance + 1 - [math]::abs($y - $dataPoint.SensorY)
+                $x = $dataPoint.SensorX - $lat
+                if ($x -ge 0 -and $x -lt ($maxSize + 1))
+                {
+                    if (!(Test-ISCovered $x $y $mapData))
+                    {
+                        "found it $x $y, $([int]$x*4000000+$y)"
+                        return
+                    }
+                }
+                $x = $dataPoint.SensorX + $lat
+                if ($x -ge 0 -and $x -lt ($maxSize + 1))
+                {
+                    
+                    if (!(Test-ISCovered $x $y $mapData))
+                    {
+                        "found it $x $y, $([int]$x*4000000+$y)"
+                        return
+                    }
+                }
+            }
         }
     }
 }
@@ -102,11 +141,6 @@ function Merge-Range ($ranges, $mergeRangeLimit)
 
 function Test-ISCovered ($x, $y, $mapData)
 {
-    #write-host "x = $x"
-    if ($mapData.Where({ $_.BeaconX -eq $x -and $_.BeaconY -eq $y }))
-    {
-        return $false
-    }
     foreach ($dataPoint in $mapData)
     {
         $distanceToSensor = [math]::abs($x - $dataPoint.SensorX) + [math]::abs($y - $dataPoint.SensorY)
@@ -145,6 +179,6 @@ $y = 2000000
 Find-Result $data -y $y 
 
 'Second part, sample result should be: '
-Find-Result2 $sample -mergeRangeLimit @{maxX = 20 }
+Find-Result2 $sample -maxSize 20 
 
-Find-Result2 $data @{maxX = 4000000 }
+Find-Result2 $data -maxSize  4000000
