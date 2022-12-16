@@ -14,89 +14,120 @@ Valve II has flow rate=0; tunnels lead to valves AA, JJ
 Valve JJ has flow rate=21; tunnel leads to valve II
 '@ -split "`n"
 
-function Find-Result ($sample)
-{
+function Find-Result ($sample) {
     $graph = Parse-Input $sample
-    Find-BestNextStep $graph -Start 'AA'
+    Find-BestPath $graph
 }
 
-function Find-Result2 ($sample)
-{
-
+function Find-Result2 ($sample) {
+    $graph = Parse-Input $sample
+    $directPaths = Get-DirectPath $graph
+    $global:Best = 0
+    Find-BestPathWithHelp2 $graph $directPaths
+    $global:Best
 }
 
-function New-Path ($step , $pressure = 0, [Valve]$valves = 0)
-{
-    @{
-        step     = $step
-        pressure = $pressure
-        valves   = [Valve]$valves
+function Find-BestPathWithHelp2 ($graph, $directPaths, $openedValve = @("AA"), $flowed = 0, $currentPlace = "AA", $timeLeft = 25, $elephantTurn = $false) {
+    if ($flowed -gt $Global:Best) {
+        $Global:Best = $flowed
+        write-host $Global:Best
     }
-}
-
-function Make-Enum ($keys)
-{
-    $s = '[flags()] enum Valve {'
-    $i = 1
-    foreach ($k in $keys)
-    {
-        $s += "`n$k = $i"
-        $i *= 2
+    if ($timeLeft -le 0) {
+        return
     }
-    $s += "`nALL = $($i-1)"
-    $s += '}'
-    $s | Invoke-Expression
-}
-function Find-BestNextStep ($graph, $start, $timeLeft = 30)
-{
-    $nextPaths = $graph[$start].neighboors | ForEach-Object {
-        New-Path -step $_
-    }
-    Make-Enum $graph.GetEnumerator().where({ $_.Value.rate -gt 0 }).Name
-    $best = @{}
-    do
-    {
-        $timeleft--
-        write-host $timeleft
-        write-host $nextPaths.count
-        $newPaths = @()
-        foreach ($path in $nextPaths)
-        {
-            $step = $path.step
-            $key = $step + [int]$path.valves
-            if ($best.ContainsKey($key) -and $best[$key] -gt $path.pressure)
-            {
-                continue
-            }
-            if ($path.pressure -eq 0 -and $timeleft -lt 25)
-            {
-                continue
-            }
-            $best[$key] = $path.pressure
-
-            if (!$path.valves.HasFlag([Valve]::$step) -and $graph[$step].rate -gt 0)
-            {
-                $newPaths += New-Path -pressure ($path.pressure + ($graph[$step].rate * ($timeleft)) ) -valves ($path.valves + [Valve]::$step) -step $step
-            } 
-            foreach ($nextStep in $graph[$step].neighboors)
-            {
-                $newPaths += New-Path -pressure $path.pressure -valves $path.valves -step $nextStep
-            }
-
+    if ($currentPlace -notin $openedValve) {
+        Find-BestPathWithHelp2 $graph $directPaths ($openedValve + $currentPlace) ($flowed + $graph[$currentPlace].rate * $timeLeft) $currentPlace ($timeLeft - 1) $elephantTurn
+        if (!$elephantTurn) {
+            Find-BestPathWithHelp2 $graph $directPaths ($openedValve + $currentPlace) ($flowed + $graph[$currentPlace].rate * $timeLeft) "AA" 25 $true
         }
-        $nextPaths = $newPaths
-    } while ($timeleft -gt 0)
+    }
+    else {
+        foreach ($next in $directPaths[$currentPlace].Keys.Where({ $_ -notin $openedValve })) {
+            Find-BestPathWithHelp2 $graph $directPaths $openedValve $flowed $next ($timeLeft - $directPaths[$currentPlace][$next]) $elephantTurn
+        }
+    }
 }
-function Parse-Input ($sample)
-{
+
+function Get-DirectPath ($graph) {
+    $directPaths = @{}
+    $keys = $graph.GetEnumerator().Where({ $_.Value.rate -gt 0 }).Name + "AA"
+    foreach ($k1 in $keys) {
+        $directPaths[$k1] = @{}
+        foreach ($k2 in $keys) {
+            if ($k1 -ne $k2) {
+                $directPaths[$k1][$k2] = Get-ShortestPath $graph $k1 $k2
+            }
+        }
+    }
+    $directPaths
+}
+# We more or less do DFS
+Function Find-BestPath ($graph, $step = "AA", $timeLeft = 30 - 1, $state = @{}, $seen = @{}) {
+
+    $current = 0
+    foreach ($item in $state.GetEnumerator().where({ $_.value })) {
+        $current += $item.Value * $graph[$item.name].rate
+    }
+    if ($timeleft -eq 0) {
+        return $current
+    } 
+    $key = [string]$timeLeft + $step
+    # if we did that before and better, stop early
+    if ($seen.ContainsKey($key) -and $seen[$key] -ge $current) {
+        return 0
+    }
+    $seen[$key] = $current
+
+    $max = 0
+    foreach ($s in ($graph[$step].neighboors + $step)) {
+        if ($s -eq $step) {
+            if (!$state[$s] -and $graph[$s].rate -gt 0) {
+                $state[$s] = $timeleft
+            }
+            else {
+                continue
+            }
+        }
+        $max = [math]::Max($max, (Find-BestPath $graph $s ($timeleft - 1) $state $seen))
+
+        if ($s -eq $step) {
+            $state[$step] = $null
+        }
+    }
+    return $max
+}
+
+Function Get-ShortestPath ($graph, $start, $end) {
+    if ($start -isnot [array]) {
+        $start = , $start
+    }
+    $depth = 0
+    while ($true) {
+        $nextSteps = New-HashSet
+        foreach ($step in $start) {
+            if ($step -eq $end) {
+                return $depth
+            }
+            foreach ($s in $graph[$step].neighboors) {
+                $null = $nextSteps.Add($s)
+            }
+        }
+        $start = $nextSteps
+        $depth++
+    }
+    $depth = 1
+}
+
+
+
+
+function Parse-Input ($sample) {
     $graph = @{}
-    foreach ($line in $sample)
-    {
-        if ($line -match 'Valve ([A-Z]+) has flow rate=([0-9]+); tunnel[s]* lead[s]* to valve[s]* (.*)')
-        {
+    foreach ($line in $sample) {
+        if ($line -match 'Valve ([A-Z]+) has flow rate=([0-9]+); tunnel[s]* lead[s]* to valve[s]* (.*)') {
             $graph[$Matches[1]] = @{
                 rate       = [int]$Matches[2]
-                neighboors = $Matches[3] -replace "`r|`n" -split ', ' | Where-Object { $_ }
+                neighboors = @( $Matches[3] -replace "`r|`n" -split ', ' | Where-Object { $_ })
             }
         }
     }
@@ -105,12 +136,12 @@ function Parse-Input ($sample)
 
 
 
-'Sample result should be: '
-Find-Result $sample
+'Sample result should be: 1649 '
+#Find-Result $sample
 
-Find-Result $data
+#Find-Result $data
 
-'Second part, sample result should be: '
+'Second part, sample result should be: 1707'
 Find-Result2 $sample
 
 Find-Result2 $data
