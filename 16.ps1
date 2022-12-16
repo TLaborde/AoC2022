@@ -25,34 +25,62 @@ function Find-Result2 ($sample)
 
 }
 
-function New-Path ($steps , $pressure = 0, $valves = @())
+function New-Path ($step , $pressure = 0, [Valve]$valves = 0)
 {
     @{
-        steps    = $steps
+        step     = $step
         pressure = $pressure
-        valves   = $valves
+        valves   = [Valve]$valves
     }
+}
+
+function Make-Enum ($keys)
+{
+    $s = '[flags()] enum Valve {'
+    $i = 1
+    foreach ($k in $keys)
+    {
+        $s += "`n$k = $i"
+        $i *= 2
+    }
+    $s += "`nALL = $($i-1)"
+    $s += '}'
+    $s | Invoke-Expression
 }
 function Find-BestNextStep ($graph, $start, $timeLeft = 30)
 {
     $nextPaths = $graph[$start].neighboors | ForEach-Object {
-        New-Path -steps $_
+        New-Path -step $_
     }
+    Make-Enum $graph.GetEnumerator().where({ $_.Value.rate -gt 0 }).Name
+    $best = @{}
     do
     {
         $timeleft--
-        $write-host $timeleft
+        write-host $timeleft
+        write-host $nextPaths.count
         $newPaths = @()
         foreach ($path in $nextPaths)
         {
-            $step = $path.steps
-            if ($step -notin $path.valves -and $graph[$step].rate -gt 0)
+            $step = $path.step
+            $key = $step + [int]$path.valves
+            if ($best.ContainsKey($key) -and $best[$key] -gt $path.pressure)
             {
-                $newPaths += New-Path -pressure ($path.pressure + ($graph[$step].rate * ($timeleft)) ) -valves ($path.valves + , $step) -steps $step
+                continue
+            }
+            if ($path.pressure -eq 0 -and $timeleft -lt 25)
+            {
+                continue
+            }
+            $best[$key] = $path.pressure
+
+            if (!$path.valves.HasFlag([Valve]::$step) -and $graph[$step].rate -gt 0)
+            {
+                $newPaths += New-Path -pressure ($path.pressure + ($graph[$step].rate * ($timeleft)) ) -valves ($path.valves + [Valve]::$step) -step $step
             } 
             foreach ($nextStep in $graph[$step].neighboors)
             {
-                $newPaths += New-Path -pressure $path.pressure -valves $path.valves -steps $nextStep
+                $newPaths += New-Path -pressure $path.pressure -valves $path.valves -step $nextStep
             }
 
         }
