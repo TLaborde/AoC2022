@@ -24,3 +24,73 @@ function New-HashSet ($Type = 'string', $Content)
 {
     return New-Object System.Collections.Generic.HashSet[$Type] $content
 }
+
+function Sort-UsingQuickSort
+{
+    # quicksort in place with custom comparer
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '', Justification = 'Purpose of function is to mimic Sort-Object, therefor the verb sort is used')] 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '', Justification = 'False positive, get-partition is not implictly called. partition is a internal function')]
+    [CmdletBinding()] # Enabled advanced function support
+    [OutputType([collections.arraylist])]
+    param(
+        [parameter(ValueFromPipeline, Mandatory)]$InputObject,
+        [parameter(Mandatory)][string]$Comparator
+    )
+
+    BEGIN
+    {
+        $Unsorted = [collections.arraylist]::New()
+    }
+
+    PROCESS
+    {
+        $InputObject | ForEach-Object {
+            $null = $Unsorted.Add($PSItem)
+        }
+    }
+
+    END
+    {
+        function quicksort ($array, $low, $high)
+        {
+            if ($low -lt $high)
+            {
+                $p = partition -array $array -low $low -high $high
+                quicksort -array $array -low $low -high ($p - 1)
+                quicksort -array $array -low ($P + 1) -high $high
+            }
+        }
+        function cmp ($a, $b)
+        {
+            "$Comparator `$a `$b" | iex
+        }
+        function partition
+        {
+            param(
+                $array,
+                $low,
+                $high
+            )
+            $pivot = $array[$high]
+            $i = $low
+            for ($j = $low; $j -le $high; $j++)
+            {
+                if ((cmp $array[$j] $pivot) -lt 0)
+                {
+                    swap -array $array -position $i -with $j
+                    $i = $i + 1
+                }
+            }
+            swap -array $array -position $i -with $high
+            return $i
+        }
+        function swap($array, $pos1, $pos2)
+        {
+            $array[$pos1], $array[$pos2] = $array[$pos2], $array[$pos1]
+        }
+
+        quicksort -array $Unsorted -low 0 -high ($Unsorted.count - 1)
+        return $Unsorted
+    }
+
+}
