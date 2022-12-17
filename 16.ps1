@@ -22,30 +22,72 @@ function Find-Result ($sample) {
 function Find-Result2 ($sample) {
     $graph = Parse-Input $sample
     $directPaths = Get-DirectPath $graph
-    $global:Best = 0
-    Find-BestPathWithHelp2 $graph $directPaths
-    $global:Best
+    Find-BestWithHelp $graph $directPaths
+
 }
 
-function Find-BestPathWithHelp2 ($graph, $directPaths, $openedValve = @("AA"), $flowed = 0, $currentPlace = "AA", $timeLeft = 25, $elephantTurn = $false) {
-    if ($flowed -gt $Global:Best) {
-        $Global:Best = $flowed
-        write-host $Global:Best
+function Get-HashCode ($array) {
+    $code = "".GetHashCode()
+    foreach ($item in $array) {
+        $code = $code -bxor $item.GetHashCode()
     }
-    if ($timeLeft -le 0) {
-        return
+    $code
+}
+
+
+function Find-BestWithHelp ($graph, $directPaths) {
+    $endpoints = @{}
+    $keys = $graph.GetEnumerator().Where({ $_.Value.rate -gt 0 }).Name + "AA"
+    function Find-AllBestPath($current = "AA", $flow = 0, $timeLeft = 26, $seen = (new-hashset)) {
+        $null = $seen.Add($current)
+        $targets = $keys.where({ !$seen.Contains($_) })
+        $torecord = $seen.where({ $_ -ne "AA" })
+        $key = Get-HashCode $torecord
+        if (!$endpoints.ContainsKey($key) -or $endpoints[$key].flow -lt $flow ) {
+            $endpoints[$key] = @{flow = $flow ; set = $torecord }
+        }
+        $bestFlow = 0
+        foreach ($target in $targets) {
+            $time = $timeLeft - $directPaths[$current][$target] - 1
+            if ($time -gt 0) {
+                $newFlow = $graph[$target].rate * $time
+                $newflow += Find-AllBestPath $target ($flow + $newFlow) $time ((new-hashset -Content $seen))
+                if ($newFlow -gt $bestFlow) {
+                    $bestFlow = $newFlow
+                }
+            }
+        }
+        return $bestFlow
     }
-    if ($currentPlace -notin $openedValve) {
-        Find-BestPathWithHelp2 $graph $directPaths ($openedValve + $currentPlace) ($flowed + $graph[$currentPlace].rate * $timeLeft) $currentPlace ($timeLeft - 1) $elephantTurn
-        if (!$elephantTurn) {
-            Find-BestPathWithHelp2 $graph $directPaths ($openedValve + $currentPlace) ($flowed + $graph[$currentPlace].rate * $timeLeft) "AA" 25 $true
+    function Find-OtherPaths($collection = ($keys.where({ $_ -ne "AA" }))) {
+        $key = Get-HashCode $collection
+        if (!$endpoints.ContainsKey($key)) {
+            $bestFlow = 0
+            foreach ($item in $collection) {
+                $subCollection = [array]$collection.where({ $_ -ne $item })
+                $newFlow = Find-OtherPaths $subCollection
+                if ($newFlow.flow -gt $bestFlow) {
+                    $bestFlow = $newFlow.flow
+                }
+    
+            }
+            $endpoints[$key] = @{flow = $bestFlow ; set = $collection }
+        }
+        return $endpoints[$key]
+    }
+    $null = Find-AllBestPath
+    $null = Find-OtherPaths
+    $bestFlow = 0
+    foreach ($endpoint in $endpoints.GetEnumerator()) {
+        # find the complement set
+        $alternateSet = [array]$keys.Where({ $_ -notin $endpoint.Value.set -and $_ -ne "AA" })
+        $key = Get-HashCode $alternateSet
+        $sumFlow = $endpoint.Value.flow + $endpoints[$key].flow
+        if ($sumFlow -gt $bestFlow) {
+            $bestFlow = $sumFlow
         }
     }
-    else {
-        foreach ($next in $directPaths[$currentPlace].Keys.Where({ $_ -notin $openedValve })) {
-            Find-BestPathWithHelp2 $graph $directPaths $openedValve $flowed $next ($timeLeft - $directPaths[$currentPlace][$next]) $elephantTurn
-        }
-    }
+    $bestFlow
 }
 
 function Get-DirectPath ($graph) {
@@ -97,6 +139,7 @@ Function Find-BestPath ($graph, $step = "AA", $timeLeft = 30 - 1, $state = @{}, 
     return $max
 }
 
+# normal DFS to find distance between important points
 Function Get-ShortestPath ($graph, $start, $end) {
     if ($start -isnot [array]) {
         $start = , $start
@@ -117,9 +160,6 @@ Function Get-ShortestPath ($graph, $start, $end) {
     }
     $depth = 1
 }
-
-
-
 
 function Parse-Input ($sample) {
     $graph = @{}
