@@ -27,6 +27,8 @@ function Find-Result2 ($sample) {
 }
 
 function Find-BestGeode ($blueprint, $maxtime = 24) {
+    $i = 0
+    $triangularSum = 0..32 | % { $i + $_ ; $i = $_ + $i ; }
     $states = New-Object System.Collections.Generic.Stack[HashTable] 
     $states.Push(
         @{
@@ -41,9 +43,7 @@ function Find-BestGeode ($blueprint, $maxtime = 24) {
             time      = $maxtime
         }
     )
-    $fields = $states[0].keys | Where-Object { $_ -ne 'time' } | Sort-Object
     $maxGeode = 0
-    $knownStates = @{}
     while ($states.count) {
         $state = $states.Pop()
 
@@ -53,14 +53,17 @@ function Find-BestGeode ($blueprint, $maxtime = 24) {
             }
             continue
         }
-        elseif ($state.time -lt 0) {
-            write-error "problem"
+        
+        # best case scenario, we can produce one new robot each time before the end, and each can produce geodes, so we
+        # need to get the total of new geode created in that case, which is the triangular sum
+        if (($state.time * $state.geodeR + $state.geode + $triangularSum[$state.time - 1]) -lt $maxGeode) {
+            # can't catch up, skip
+            continue
         }
 
-        # next step is to wait to build anothing or wait
-        # let's build an ore machine
+        # next step is to wait to build something or wait
+        # let's build an ore machine, if we have less than then max ore cost
         if ($state.oreR -and $state.oreR -lt $blueprint.maxOreCost) {
-            #always true
             $timeToWait = [math]::Ceiling([math]::Max(0, $blueprint.oreRobotOre - $state.ore) / $state.oreR) + 1
             if ($state.time - $timeToWait -ge 0) {
                 $newState = $state.Clone()
@@ -126,7 +129,6 @@ function Find-BestGeode ($blueprint, $maxtime = 24) {
 
         if ($state.geode + $state.geodeR * $state.time -gt $maxGeode) {
             $maxGeode = $state.geode + $state.geodeR * $state.time
-            write-host "found best time $maxGeode"
         }
     }
     return $maxGeode
@@ -154,14 +156,11 @@ function Parse-Input ($sample) {
 
 
 'Sample result should be: 33'
-#Find-Result $sample
+Find-Result $sample
 
-#Find-Result $data
+Find-Result $data
 
 'Second part, sample result should be: '
 Find-Result2 $sample
 
 Find-Result2 $data
-
-# go from result
-#to have 1 at the end, need 1 machine step - 1
