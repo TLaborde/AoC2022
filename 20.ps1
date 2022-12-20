@@ -69,6 +69,7 @@ function Mix-List ($list)
         $moves = $node.content % $modulo
         # we could simplify by having moves always positive but eh
         # that would allow for having simple linked list tho
+        # nvm, L66 couldn't be done with simple link
         if ($moves -gt 0)
         {
             for ($j = 0; $j -lt $moves; $j++)
@@ -85,13 +86,6 @@ function Mix-List ($list)
             }
         }
         
-        # move head if needed
-        # a node cannot be moved to head using the puzzle logic
-        if ($node.head)
-        {
-            $node.next.head = $true
-            $node.head = $false
-        }
         #add node after swap
         $swap.next.previous = $node
         $node.next = $swap.next
@@ -105,7 +99,7 @@ function Parse-Input ($sample)
     # let make a ghetto circular double linked list
     # We store it in an array, so we can index it for the main loop
     # create array of "nodes" as hashtable with ref to previous and next
-    # hed should be something external, but whatever
+    # we don't need to track the head, since we use the content 0 later as head
     $list = @()
     $list = foreach ($item in $sample)
     {
@@ -113,7 +107,6 @@ function Parse-Input ($sample)
             next     = $null
             previous = $null
             content  = [int]$item
-            head     = $false
         }
     }
     # fill previous/next for all node
@@ -122,7 +115,6 @@ function Parse-Input ($sample)
         $list[$i].next = $list[($i + 1) % $list.Count]
         $list[$i].previous = $list[$i - 1]
     }
-    $list[0].head = $true
     $list
 }
 
@@ -136,4 +128,4 @@ Find-Result $data
 'Second part, sample result should be: 1623178306'
 Find-Result2 $sample
 
-Find-Result2 $data
+#Find-Result2 $data
