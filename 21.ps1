@@ -29,8 +29,8 @@ function Find-Result2 ($sample)
 {
     $monkeys = Parse-Input $sample
     $monkeys['humn'].result = 'x'
-    $leftSide = Solve-ForHuman $monkeys $monkeys['root'].left
-    $rightSide = Solve-ForHuman $monkeys $monkeys['root'].right
+    $leftSide = Solve-Value $monkeys $monkeys['root'].left
+    $rightSide = Solve-Value $monkeys $monkeys['root'].right
     Simplify-Equation $leftSide $rightSide
 
 }
@@ -41,49 +41,26 @@ function Simplify-Equation ($leftSide, [int64]$rightSide)
     {
         if ($leftSide -match '^\(([x0-9\(\) \*\+\-/]+) ([\*\+\-/]) ([0-9]+)\)$')
         {
-            if ($Matches[2] -eq '+')
+            switch ($Matches[2])
             {
-                $rightSide -= [int64]$Matches[3]
-            }
-            if ($Matches[2] -eq '*')
-            {
-                $rightSide /= [int64]$Matches[3]
-            }
-            if ($Matches[2] -eq '/')
-            {
-                $rightSide *= [int64]$Matches[3]
-            }
-            if ($Matches[2] -eq '-')
-            {
-                $rightSide += [int64]$Matches[3]
+                '+' { $rightSide -= [int64]$Matches[3] }
+                '*' { $rightSide /= [int64]$Matches[3] }
+                '/' { $rightSide *= [int64]$Matches[3] }
+                '-' { $rightSide += [int64]$Matches[3] }
             }
             $leftSide = $Matches[1]
         }
         elseif ($leftSide -match '^\(([0-9]+) ([\*\+\-/]) ([x0-9\(\) \*\+\-/]+)\)$')
         {
-            if ($Matches[2] -eq '+')
+            switch ($Matches[2])
             {
-                $rightSide -= [int64]$Matches[1]
-            }
-            if ($Matches[2] -eq '*')
-            {
-                $rightSide /= [int64]$Matches[1] 
-            }
-            if ($Matches[2] -eq '/')
-            {
-                if ([int64]$Matches[1] % $rightSide -ne 0)
-                {
-                    Write-Warning 'division lost'
-                }
-                $rightSide = [int64]$Matches[1] / $rightSide
-            }
-            if ($Matches[2] -eq '-')
-            {
-                $rightSide = - ($rightSide - [int64]$Matches[1])
+                '+' { $rightSide -= [int64]$Matches[1] }
+                '*' { $rightSide /= [int64]$Matches[1] }
+                '/' { $rightSide = [int64]$Matches[1] / $rightSide }
+                '-' { $rightSide = - ($rightSide - [int64]$Matches[1]) }
             }
             $leftSide = $Matches[3]
         }
-        #"$leftSide=$rightSide"
     }
     "$leftSide=$rightSide"
 }
@@ -94,19 +71,6 @@ function Solve-Value ($monkeys, $monkey)
     {
         $left = Solve-Value $monkeys $monkeys[$monkey].left
         $right = Solve-Value $monkeys $monkeys[$monkey].right
-        $res = "$left $($monkeys[$monkey].operation) $right"
-        write-host $res
-        $monkeys[$monkey].result = $res  | Invoke-Expression
-    }
-    return $monkeys[$monkey].result
-}
-
-function Solve-ForHuman ($monkeys, $monkey)
-{
-    if (!$monkeys[$monkey].result)
-    {
-        $left = Solve-ForHuman $monkeys $monkeys[$monkey].left
-        $right = Solve-ForHuman $monkeys $monkeys[$monkey].right
         $res = "($left $($monkeys[$monkey].operation) $right)"
         if ($res -match 'x')
         {
@@ -146,12 +110,10 @@ function Parse-Input ($sample)
     $monkeys
 }
 
-
-
 'Sample result should be: '
-#Find-Result $sample
+Find-Result $sample
 
-#Find-Result $data
+Find-Result $data
 
 'Second part, sample result should be: '
 Find-Result2 $sample
