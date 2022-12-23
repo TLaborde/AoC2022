@@ -1,5 +1,5 @@
-. ./common.ps1
-$data = Get-Content .\23.input.txt
+﻿#. ./common.ps1
+$data = Get-Content "C:\Users\Luc\Desktop\AoC2022\23.input.txt"
 
 $sample = @'
 ....#..
@@ -12,11 +12,11 @@ $sample = @'
 '@ -split "`n"
 
 function Find-Result ($sample) {
-    $elves = Parse-Input $sample
+    [System.Collections.Generic.HashSet[System.ValueTuple[int, int]]]$elves = Parse-Input $sample
     $rounds = 10
     for ($i = 0; $i -lt $rounds; $i++) {
         $proposedChanges = Get-Phase1 $elves $i
-        $null, $elves = Apply-Changes $proposedChanges
+        $null = Apply-Changes $proposedChanges $elves
         #"end of round $i"
         #Draw-Elves $elves
         #''
@@ -31,7 +31,7 @@ function Draw-Elves ($elves) {
     $maxX, $minX = $elves | ForEach-Object { $_[1] } | Measure-Object -Minimum -Maximum | ForEach-Object { $_.maximum, $_.minimum }
     for ([int]$i = $minY; $i -le $maxY; $i++) {
         for ([int]$j = $minX; $j -le $maxX; $j++) {
-            $pos = [tuple]::create($i, $j)
+            $pos = [valuetuple]::create($i, $j)
             if ($elves.Contains($pos)) {
                 write-host '#' -NoNewline
             }
@@ -44,49 +44,52 @@ function Draw-Elves ($elves) {
 }
 function Find-Result2 ($sample) {
 
-    $elves = Parse-Input $sample
+    [System.Collections.Generic.HashSet[System.ValueTuple[int, int]]]$elves = Parse-Input $sample
     $i = 0
     do {
         $proposedChanges = Get-Phase1 $elves $i
-        $hasmoves, $elves = Apply-Changes $proposedChanges $elves
+        $hasmoves = Apply-Changes $proposedChanges $elves
         $i++
-        Write-Host "end of round $i, $hasmoves move done"
     } while ($hasmoves)
     $i
 }
 
-function Apply-Changes ($proposedChanges, [System.Collections.ArrayList]$elves) {
-    $conflicts = @(($proposedChanges.values | Group-Object | Where-Object { $_.count -gt 1 }) | ForEach-Object { $_.group[0] })
+function Apply-Changes ($proposedChanges, $elves) {
+    [System.Collections.Generic.HashSet[System.ValueTuple[int, int]]]$conflicts = [System.Collections.Generic.HashSet[System.ValueTuple[int, int]]]::new()
+    ($proposedChanges.values | Group-Object).where({ $_.count -gt 1 }).foreach({ $null = $conflicts.Add($_.group[0]) })
     $moved = 0
     foreach ($elf in $proposedChanges.GetEnumerator().Where({ !$conflicts.Contains($_.Value) })) {
-        $elves.Remove($elf.Key)
-        $elves += $elf.Value
+        $null = $elves.Remove($elf.Key)
+        $null = $elves.Add($elf.Value)
         $moved++
     }
-    $moved, $elves
+    $moved
 }
 
-function Get-Phase1 ($elves, $round) {
+function Get-Phase1 ([System.Collections.Generic.HashSet[System.ValueTuple[int, int]]]$elves, $round) {
     $proposal = @(
         @(
-            [tuple]::Create(-1, 0), [tuple]::Create(-1, -1), [tuple]::Create(-1, 1) # check north
+            [valuetuple]::Create(-1, 0), [valuetuple]::Create(-1, -1), [valuetuple]::Create(-1, 1) # check north
         ),
         @(
-            [tuple]::Create(1, 0), [tuple]::Create(1, -1), [tuple]::Create(1, 1) # check south
+            [valuetuple]::Create(1, 0), [valuetuple]::Create(1, -1), [valuetuple]::Create(1, 1) # check south
         ),
         @(
-            [tuple]::Create(0, -1), [tuple]::Create(-1, -1), [tuple]::Create(1, -1) # check west
+            [valuetuple]::Create(0, -1), [valuetuple]::Create(-1, -1), [valuetuple]::Create(1, -1) # check west
         ),
         @(
-            [tuple]::Create(0, 1), [tuple]::Create(-1, 1), [tuple]::Create(1, 1) # check east
+            [valuetuple]::Create(0, 1), [valuetuple]::Create(-1, 1), [valuetuple]::Create(1, 1) # check east
         )
     )
-    $around = @([tuple]::Create(-1, -1), [tuple]::Create(-1, 0), [tuple]::Create(-1, 1), [tuple]::Create(0, 1), [tuple]::Create(1, 1), [tuple]::Create(1, 0), [tuple]::Create(1, -1), [tuple]::Create(0, -1))
+    $around = @([valuetuple]::Create(-1, -1), [valuetuple]::Create(-1, 0), [valuetuple]::Create(-1, 1), [valuetuple]::Create(0, 1), [valuetuple]::Create(1, 1), [valuetuple]::Create(1, 0), [valuetuple]::Create(1, -1), [valuetuple]::Create(0, -1))
     $moves = @{}
+    $aroundValues = @{}
+
     foreach ($elf in $elves) {
-        # if nothing around, don't move
-        $aroundValues = $around.where({ $elves.Contains([tuple]::Create(($elf[0] + $_[0]), ($elf[1] + $_[1]))) })
-        if (!$aroundValues) {
+        for ($i = 0; $i -lt 8; $i++) {
+            $aroundValues[$around[$i]] = $elves.Contains([valuetuple]::Create(($elf[0] + $around[$i][0]), ($elf[1] + $around[$i][1]))) 
+        }
+        if ($true -notin $aroundValues.Values) {
             continue
         }
 
@@ -94,13 +97,13 @@ function Get-Phase1 ($elves, $round) {
             $conflict = $false
             $prop = $proposal[$i % 4]
             foreach ($p in $prop) {
-                if ($aroundValues.Contains($p)) {
+                if ($aroundValues[$p]) {
                     $conflict = $true
                     break
                 }
             }
             if (!$conflict) {
-                $moves[$elf] = [tuple]::Create(($elf[0] + $prop[0][0]), ($elf[1] + $prop[0][1]))
+                $moves[$elf] = [valuetuple]::Create(($elf[0] + $prop[0][0]), ($elf[1] + $prop[0][1]))
                 break
             }
         }
@@ -109,12 +112,12 @@ function Get-Phase1 ($elves, $round) {
 }
 
 function Parse-Input ($sample) {
-    [System.Collections.ArrayList]$elves = @()
+    [System.Collections.Generic.HashSet[System.ValueTuple[int, int]]]$elves = [System.Collections.Generic.HashSet[System.ValueTuple[int, int]]]::new()
     for ($i = 0; $i -lt $sample.Count; $i++) {
         if ($sample[$i] -match '[#\.]+') {
             for ($j = 0; $j -lt $sample[$i].Length; $j++) {
                 if ($sample[$i][$j] -eq '#') {
-                    $elves += [tuple]::create([int]$i, [int]$j)
+                    $null = $elves.Add([valuetuple]::create([int]$i, [int]$j))
                 }
             }
         }
@@ -124,9 +127,9 @@ function Parse-Input ($sample) {
 
 
 'Sample result should be: '
-#Find-Result $sample
+Find-Result $sample
 
-#Find-Result $data
+Find-Result $data
 
 'Second part, sample result should be: '
 Find-Result2 $sample
